@@ -2,7 +2,9 @@ package main
 
 import ("fmt" 
 		"encoding/json"
-		"net/http")
+		"net/http"
+		"math"
+		"errors")
 
 type Coord struct {
 	X int `json:"x"`
@@ -60,44 +62,80 @@ var block5 = OrientedBlock{BlockID:5,
 func (b *OrientedBlock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	blockJSON,_ := json.Marshal(*b)
+	fmt.Printf("ServeHTTP serving block %s\n", blockJSON)
 	fmt.Fprintf(w,"%s",blockJSON)
 
 }
 
 // rotates block around axes and then brings it back into quadrant one
 // only allow rotations of 90,180, or 270 degrees around an axis
-func (b *OrientedBlock) RotateAroundAxis(axis Axis, degrees int) (newBlock *OrientedBlock, error Error) {
+func (b *OrientedBlock) RotateAroundAxis(axis Axis, degrees int) (*OrientedBlock, error) {
+	switch degrees {
+	case 90:
+	case 180:
+	case 270:
+	default:
+		return nil, errors.New("RotateAroundAxis can only rotate 90,180 and 270 degrees")
+	}
+	if (b == nil) {
+		return nil, errors.New("RotateAroundAxis received nil for block")
+	}
 
+	newBlock := new(OrientedBlock)
+	newBlock.BlockID = b.BlockID
+	newBlock.Parts = make([]Coord, len(b.Parts))	// create a new array that will hold rotated points
+
+	for i := 0; i < len(b.Parts); i++ {
+		newBlock.Parts[i] = b.Parts[i].RotateAroundAxis(axis, degrees)
+	}
+
+	return newBlock, nil
 
 	
 }
 
+
+// round a number
+func Round(val float64) int {
+    if val < 0 {
+        return int(val-0.5)
+    }
+    return int(val+0.5)
+}
+
+
 // rotates a point around an axis
 func (c Coord) RotateAroundAxis(axis Axis, degrees int) (newCoord Coord) {
 
-	var radians float64 = degrees/360 * math.Pi * 2.0 // convert to radians
+	var radians float64 = float64(degrees)/360 * math.Pi * 2.0 // convert to radians
 	var x,y,z float64
-	var oldX, oldY, oldZ
+	var oldX, oldY, oldZ float64
 	oldX = float64(c.X)
 	oldY = float64(c.Y)
 	oldZ = float64(c.Z)
 	switch axis {
 	case XAxis:
-		y = oldY * math.Cos(q) - oldZ * math.Sin(q)
-		z = oldY * math.Sin(q) + oldZ * math.Cos(q)
+		y = oldY * math.Cos(radians) - oldZ * math.Sin(radians)
+		z = oldY * math.Sin(radians) + oldZ * math.Cos(radians)
 		x = oldX
 
 	case YAxis:
-		z = oldZ * math.Cos(q) - oldX *math.Sin(q)
-		x = oldZ * math.Sin(q) + oldX *math.Cos(q)
+		z = oldZ * math.Cos(radians) - oldX *math.Sin(radians)
+		x = oldZ * math.Sin(radians) + oldX *math.Cos(radians)
+		y = oldY
 
 	case ZAxis:
-		x = oldX * math.Cos(q) - oldY * math.Sin(q)
-		y = oldX * math.Sin(q) + oldY* math.Cos(q)
+		x = oldX * math.Cos(radians) - oldY * math.Sin(radians)
+		y = oldX * math.Sin(radians) + oldY* math.Cos(radians)
 		z = oldZ
 	default:
 		fmt.Println("Bad call to (Coord) RotateAroundAxis")
 	}
+	newCoord.X = Round(x)
+	newCoord.Y = Round(y)
+	newCoord.Z = Round(z)
+	fmt.Printf("Old Coord = %v, New Coord = %v\n", c, newCoord)
+	return (newCoord)
 
 
 }
@@ -113,7 +151,15 @@ func main() {
 		fmt.Printf("error was %v",err)
 	}
 
-	// calculate some block rotations
+
+	// outline
+	// create all orientations of blocks
+	// for each piece
+	//   for each orientation
+	//     for each starting postion of (-x,x, -y,y, -z, z)
+	//        for each translation that still results in piece going into cube boundary
+	//           translate block into final cube boundary in quadrant 1
+	//           if block can't get into quadrant one, then continue
 
 
 
@@ -122,7 +168,9 @@ func main() {
 	http.Handle("/block/1", &block1)
 	http.Handle("/block/2", &block2)
 	http.Handle("/block/3", &block3)
+//	rotatedBlock4,_ := block4.RotateAroundAxis(ZAxis,90)
 	http.Handle("/block/4", &block4)	
+//	http.Handle("/block/4", rotatedBlock4)
 	http.Handle("/block/5", &block5)
 
 
