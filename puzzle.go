@@ -94,6 +94,40 @@ func (b *OrientedBlock) RotateAroundAxis(axis Axis, degrees int) (*OrientedBlock
 	
 }
 
+// analyzes the block and translates it to Quadrant 1, putting it's lower left corner at the orgin
+func (b* OrientedBlock) TranslateToQuadrantOne() {
+
+	// Analyze the block and figure out how to bring it to quadrant 1
+	// Translate it to Quadrant 1
+	var minx, miny, minz int = math.MaxInt32, math.MaxInt32, math.MaxInt32
+	for i:=0; i < len(b.Parts); i++ {
+		if b.Parts[i].X < minx {
+			minx = b.Parts[i].X
+		}
+		if b.Parts[i].Y < miny {
+			miny = b.Parts[i].Y
+		}
+		if b.Parts[i].Z < minz {
+			minz = b.Parts[i].Z
+		}
+	}
+	b.Translate(-minx, -miny, -minz)
+
+
+}
+
+// this will translate every coordinate in the block by x,y,z
+// it works in place
+func (b *OrientedBlock) Translate(x int, y int, z int) {
+
+	// for each coordinate
+	// TranslateCoord
+	for i:=0; i < len(b.Parts); i++ {
+		(&(b.Parts[i])).Translate(x, y, z)
+	}
+
+}
+
 
 // round a number
 func Round(val float64) int {
@@ -136,8 +170,13 @@ func (c Coord) RotateAroundAxis(axis Axis, degrees int) (newCoord Coord) {
 	newCoord.Z = Round(z)
 	fmt.Printf("Old Coord = %v, New Coord = %v\n", c, newCoord)
 	return (newCoord)
+}
 
-
+// translates a coordinate 
+func (c *Coord) Translate(x int, y int, z int) {
+	c.X += x
+	c.Y += y
+	c.Z += z
 }
 
 func main() {
@@ -168,9 +207,10 @@ func main() {
 	http.Handle("/block/1", &block1)
 	http.Handle("/block/2", &block2)
 	http.Handle("/block/3", &block3)
-//	rotatedBlock4,_ := block4.RotateAroundAxis(ZAxis,90)
-	http.Handle("/block/4", &block4)	
-//	http.Handle("/block/4", rotatedBlock4)
+    rotatedBlock4,_ := block4.RotateAroundAxis(ZAxis,90)
+    rotatedBlock4.TranslateToQuadrantOne()
+	//http.Handle("/block/4", &block4)	
+	http.Handle("/block/4", rotatedBlock4)
 	http.Handle("/block/5", &block5)
 
 
