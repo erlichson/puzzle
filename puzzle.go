@@ -29,9 +29,9 @@ const (
 	ZAxis)
 
 
+var blocks [6]*Block;
 
-
-// Each block is described with a base orientation
+// Each block is described with a base orientation. We will have to calculate the 24 possible orientations
 
 var block0 = OrientedBlock{BlockID:0,
 	Parts:[]Coord{Coord{0,0,0}, Coord{1,0,0}, Coord{0,1,0},Coord{0,2,0}, Coord{0,3,0}, Coord{1,3,0}}}
@@ -57,6 +57,23 @@ var block4 = OrientedBlock{BlockID:4,
 var block5 = OrientedBlock{BlockID:5,
 	Parts:[]Coord{Coord{0,0,0}, Coord{1,0,0}, Coord{2,0,0}, Coord{0,1,0}, Coord{0,2,0},
 			Coord{2,0,1}, Coord{0,1,1}, Coord{2,1,1}, Coord{2,2,1}, Coord{3,2,1}, Coord{2,2,2}}}
+
+// Given an oriented Block, return a Block with all 24 variations
+func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
+	b := new(Block)
+	int v = 1
+	b.BlockID = baseBlock.BlockID
+	b.Variations[0] = baseBlock
+	b.Variations[v++], _ = baseBlock.RotateAroundAxis(ZAxis, 90)
+	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Zaxis, 180)
+	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Zaxis, 270)
+
+	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Xaxis, 90)
+
+
+	return b
+
+}
 
 // This will serve any block
 func (b *OrientedBlock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +217,12 @@ func main() {
 	//           translate block into final cube boundary in quadrant 1
 	//           if block can't get into quadrant one, then continue
 
-
+	blocks[0] = CreateBlockOrientations(&block0)
+	blocks[1] = CreateBlockOrientations(&block1)
+	blocks[2] = CreateBlockOrientations(&block2)
+	blocks[3] = CreateBlockOrientations(&block3)
+	blocks[4] = CreateBlockOrientations(&block4)
+	blocks[5] = CreateBlockOrientations(&block5)
 
 
 	http.Handle("/block/0", &block0)
