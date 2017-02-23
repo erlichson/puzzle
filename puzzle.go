@@ -19,7 +19,7 @@ type OrientedBlock struct {
 
 type Block struct {
 	BlockID int
-	Variations [24]OrientedBlock
+	Variations [24]*OrientedBlock
 }
 
 type Axis int
@@ -61,14 +61,47 @@ var block5 = OrientedBlock{BlockID:5,
 // Given an oriented Block, return a Block with all 24 variations
 func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
 	b := new(Block)
-	int v = 1
+	var v int = 0
 	b.BlockID = baseBlock.BlockID
-	b.Variations[0] = baseBlock
-	b.Variations[v++], _ = baseBlock.RotateAroundAxis(ZAxis, 90)
-	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Zaxis, 180)
-	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Zaxis, 270)
+	b.Variations[0],v = baseBlock, v + 1
 
-	b.Variations[v++], _ = baseBlock.RotateAroundAxis(Xaxis, 90)
+	var o *OrientedBlock = baseBlock
+	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+	v++
+	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+	v++
+	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+	v++
+
+	for alpha := 90; alpha < 360; alpha+=90 {
+		// should call for 90, 180, 270  (12 in total)
+		o, _ = baseBlock.RotateAroundAxis(XAxis, alpha)
+		b.Variations[v] = o
+		v++
+
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+		v++
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+		v++
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+		v++
+	}
+	
+	for omega := 90; omega < 360; omega += 180 {
+		// should call for 90 and 270 (8 in total)
+		o, _ = baseBlock.RotateAroundAxis(YAxis, omega)
+		b.Variations[v] = o
+		v++
+
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+		v++
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+		v++
+		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+		v++
+
+	}
+	fmt.Printf("Final value of b = %v\n",v)
 
 
 	return b
@@ -185,7 +218,7 @@ func (c Coord) RotateAroundAxis(axis Axis, degrees int) (newCoord Coord) {
 	newCoord.X = Round(x)
 	newCoord.Y = Round(y)
 	newCoord.Z = Round(z)
-	fmt.Printf("Old Coord = %v, New Coord = %v\n", c, newCoord)
+	// fmt.Printf("Old Coord = %v, New Coord = %v\n", c, newCoord)
 	return (newCoord)
 }
 
