@@ -28,6 +28,62 @@ const (
 	YAxis
 	ZAxis)
 
+const SpaceDimension int = 30
+
+
+type Space struct {
+	size int
+	grid [][][]*OrientedBlock
+}
+
+// gets the element at the x,y,z value
+func (s* Space) GetElem(x int, y int, z int) (*OrientedBlock, error) {
+	// move into positive numbers
+	x = x + s.size/2
+	y = y + s.size/2
+	z = z + s.size/2
+	if (x >= s.size) || (y >= s.size) || (z >= s.size) {
+		error := errors.New("(Space) Get Elem, x,y, or z out of bounds")
+		return nil, error
+	}
+	return s.grid[x][y][z], nil
+
+}
+
+// sets the element at the x,y,z value, returning error if out of bounds
+// also returns the old value
+func (s* Space) SetElem(x int, y int, z int, block *OrientedBlock) (*OrientedBlock, error) {
+	x = x + s.size/2
+	y = y + s.size/2
+	z = z + s.size/2
+	if (x >= s.size) || (y >= s.size) || (z >= s.size) {
+		error := errors.New("(Space) Set Elem, x,y, or z out of bounds")
+		return nil, error
+	}
+	oldValue := s.grid[x][y][z]
+	s.grid[x][y][z] = block
+	return oldValue, nil
+}
+
+func NewSpace(size int) (*Space) {
+	var mySpace *Space = new(Space)
+	mySpace.size = size
+	mySpace.grid = make([][][]*OrientedBlock, size)
+	for i:=0; i< size; i++ {
+		mySpace.grid[i] = make([][] *OrientedBlock, size)
+		for j:=0; j < size; j++ {
+			mySpace.grid[i][j] = make([]*OrientedBlock, size)
+			for k:=0; k < size; k++ {
+				mySpace.grid[i][j][k] = nil   // probably not needed but not sure
+			}
+		}
+	}
+
+	return mySpace
+
+}
+
+// Some global variables. Forgive me
 
 var blocks [6]*Block;
 
@@ -53,10 +109,16 @@ var block4 = OrientedBlock{BlockID:4,
 			Coord{0,2,0}, Coord{3,2,0}, Coord{3,3,0}, Coord{0,1,1}, Coord{0,0,2}, Coord{0,1,2},
 			Coord{0,1,3}, Coord{0,2,3}, Coord{0,3,3}}}
 
-
 var block5 = OrientedBlock{BlockID:5,
 	Parts:[]Coord{Coord{0,0,0}, Coord{1,0,0}, Coord{2,0,0}, Coord{0,1,0}, Coord{0,2,0},
 			Coord{2,0,1}, Coord{0,1,1}, Coord{2,1,1}, Coord{2,2,1}, Coord{3,2,1}, Coord{2,2,2}}}
+
+
+// every possible starting position for a block if we want to build the final cube in the positions 0,0,0 -> 3,3,3
+var startingPositions = []Coord{Coord{-8,0,0},Coord{8,0,0}, Coord{0,-8,0}, Coord{0,8,0}, Coord{0,0,-8}, Coord{0,0,8}}
+
+
+
 
 // Given an oriented Block, return a Block with all 24 variations
 func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
@@ -67,23 +129,30 @@ func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
 
 	var o *OrientedBlock = baseBlock
 	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+	b.Variations[v].TranslateToQuadrantOne()
 	v++
 	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+	b.Variations[v].TranslateToQuadrantOne()
 	v++
 	b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+	b.Variations[v].TranslateToQuadrantOne()
 	v++
 
 	for alpha := 90; alpha < 360; alpha+=90 {
 		// should call for 90, 180, 270  (12 in total)
 		o, _ = baseBlock.RotateAroundAxis(XAxis, alpha)
 		b.Variations[v] = o
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 	}
 	
@@ -91,22 +160,27 @@ func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
 		// should call for 90 and 270 (8 in total)
 		o, _ = baseBlock.RotateAroundAxis(YAxis, omega)
 		b.Variations[v] = o
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 90)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 180)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 		b.Variations[v],_ = o.RotateAroundAxis(ZAxis, 270)
+		b.Variations[v].TranslateToQuadrantOne()
 		v++
 
 	}
-	fmt.Printf("Final value of b = %v\n",v)
 
 
 	return b
 
 }
+
+
 
 // This will serve any block
 func (b *OrientedBlock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +239,21 @@ func (b* OrientedBlock) TranslateToQuadrantOne() {
 
 
 }
+// ignores blockID
+// goes through every 
+func (b* OrientedBlock) IsEqual(c* OrientedBlock) (bool) {
+	if len(b.Parts) != len(c.Parts) {
+		return false
+	}
+	for i := 0 ; i < len(b.Parts); i++ {
+		
+		if !(b.Parts[i].IsEqual(&(c.Parts[i]))) {
+			return false
+		}
+	}
+	return true
+}
+
 
 // this will translate every coordinate in the block by x,y,z
 // it works in place
@@ -229,6 +318,45 @@ func (c *Coord) Translate(x int, y int, z int) {
 	c.Z += z
 }
 
+func (c *Coord) IsEqual(d *Coord) (bool) {
+	if c == nil || d == nil {
+		return false
+	}
+	if (c.X != d.X) || (c.Y != d.Y) || (c.Z != d.Z) {
+		return false
+	}
+	return true
+}
+
+// This is the primary solver
+func Solve() {
+// outline
+	// for each piece
+	//   for each orientation
+	//     for each starting postion of (-x,x, -y,y, -z, z)
+	//        for each translation that still results in piece going into cube boundary
+	//           translate block into final cube boundary in quadrant 1
+	//           if block can't get into quadrant one, then continue
+
+
+	var space *Space = NewSpace(SpaceDimension)
+	for i:=0; i < len(blocks); i++ {
+		for orient :=0; orient < len(blocks[i].Variations); orient++ {
+			block := blocks[i].Variations[orient]
+			block.TranslateToQuadrantOne()			// put it at origin
+			for startingPos = 0; startingPos < len(startingPositions); startignPos++ {
+
+				// Translate Block to that Location
+				block.TranslateToCoord(staringPositions[startingPos])
+				
+			}
+
+
+		}
+	}
+
+}
+
 func main() {
 	var block4JSON []byte
 	var err error
@@ -257,15 +385,14 @@ func main() {
 	blocks[4] = CreateBlockOrientations(&block4)
 	blocks[5] = CreateBlockOrientations(&block5)
 
+	Solve()
+
 
 	http.Handle("/block/0", &block0)
 	http.Handle("/block/1", &block1)
 	http.Handle("/block/2", &block2)
 	http.Handle("/block/3", &block3)
-    rotatedBlock4,_ := block4.RotateAroundAxis(ZAxis,90)
-    rotatedBlock4.TranslateToQuadrantOne()
-	//http.Handle("/block/4", &block4)	
-	http.Handle("/block/4", rotatedBlock4)
+	http.Handle("/block/4", blocks[4].Variations[19])
 	http.Handle("/block/5", &block5)
 
 
