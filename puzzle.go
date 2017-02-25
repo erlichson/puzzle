@@ -215,9 +215,9 @@ func CreateBlockOrientations(baseBlock *OrientedBlock) (*Block) {
 
 }
 // a localization is a set of translations that will still keep the block within the block from 0,0,0 -> 3,3,3
-func CreateBlockLocalizations(block *block) {
+func CreateBlockLocalizations(block *Block) {
 
-	for i:=0; i < len(block.Variations); i++) {
+	for i:=0; i < len(block.Variations); i++ {
 		block.Variations[i].CreateLocalizations()
 	}
 
@@ -236,11 +236,50 @@ func (b *OrientedBlock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // calculates and fills in locations that will keep the oriented block, which is assumed to be in quadrant 0, 
 // between 0,0,0 and 3,3,3
-func (b *OrientedBlock) CreateLocalizations() {
+func (b *OrientedBlock) CreateLocalizations() (error) {
 
 	// block should be in quadrant 0 to start
-	TODO, work here
+	// Analyze the block and figure how much space is top right, back
+
+	var maxx, maxy, maxz int = 0,0,0
+	for i:=0; i < len(b.Parts); i++ {
+		if b.Parts[i].X > maxx {
+			maxx = b.Parts[i].X
+		}
+		if b.Parts[i].Y > maxy {
+			maxy = b.Parts[i].Y
+		}
+		if b.Parts[i].Z > maxz {
+			maxz = b.Parts[i].Z
+		}
+	}
+	if (maxx > 3 || maxy> 3 || maxz > 3) {
+		return errors.New("CreateLocalizations: oddly, x, y, or z is > 3")
+	}
+
+	n := (4-maxx)*(4-maxy)*(4-maxz) - 1 // we don't encode 0,0,0
+	b.localMovements = make([]Translation, n)
+
+	fmt.Printf("max x = %v, max y = %v, maxz = %v\n", maxx, maxy, maxz)
+	var t int = 0
+	// here we are looking to iterate once for each whole number less than 4
+	// so if the right most block is at x=2, then you generate the 0,1 as possible translations
+	// we don't encode the 0,0,0 translation though. 
+	for x, xTrans:=maxx, 0; x < 4; x, xTrans = x +1, xTrans + 1{
+		for y, yTrans:=maxy, 0; y < 4; y, yTrans = y+1, yTrans+1 {
+			for z, zTrans := maxz,0; z < 4; z,zTrans = z +1, zTrans + 1 {
+				if (xTrans != 0 || yTrans !=0 || zTrans !=0) {
+					b.localMovements[t] = Translation{xTrans, yTrans, zTrans}
+					t++
+				}
+			}
+		}
+	}
+	if (t != n) {
+		return errors.New(fmt.Sprintf("CreateLocalizations: final number not correct, %v != %v\n", t,n))
+	}
 	
+	return nil
 
 }
 
