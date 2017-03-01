@@ -153,6 +153,32 @@ func (s* Space) InsertBlock(block *OrientedBlock) (bool, error) {
 	}
 	return true, nil
 }
+// Attempts to remove every part of the block...every element should point to this block
+func (s* Space) RemoveBlock(block *OrientedBlock) (error) {
+
+	if (block == nil) {
+		return errors.New("(Space ) received empty block")
+	}
+
+	for i:=0; i < len(block.Parts); i++ {
+		elem, e := s.GetElem(block.Parts[i].X, block.Parts[i].Y, block.Parts[i].Z)
+		if (e != nil) {
+			return errors.New(fmt.Sprintf("RemoveBlock: %s",e))
+		}
+		if (elem != block) {
+			return errors.New("RemoveBlock found foreign block in space") 
+		}
+	}
+	// at this point, we can remove the block
+	for i:=0; i < len(block.Parts); i++ {
+		elem, e := s.SetElem(block.Parts[i].X, block.Parts[i].Y, block.Parts[i].Z, nil)
+		if (elem == nil) {
+			return errors.New(fmt.Sprintf("(Space) Internal error when removing, %s",e.Error()))
+		}
+	}
+	return nil
+}
+
 
 
 // Given an oriented Block, return a Block with all 24 variations
@@ -220,6 +246,50 @@ func CreateBlockLocalizations(block *Block) {
 	for i:=0; i < len(block.Variations); i++ {
 		block.Variations[i].CreateLocalizations()
 	}
+
+}
+
+func Abs(x int) int {
+	if x > 0 {
+		return x
+	} else {
+		return -x
+	}
+}
+
+// returns information on the steps to the origin based on starting position
+// c is the starting position of the block
+func StepsToOrigin(c Coord) (translation Translation, steps int, e error) {
+
+	if (c.X != 0) {
+		if (c.Y != 0 || c.Z != 0) {
+			e = errors.New("StepsToOrigin: only X, Y or Z can be non-zero")
+		} else {
+			translation = Translation{X:c.X/Abs(c.X), Y:0, Z:0}
+			steps = Abs(c.X)
+			e = nil
+		}
+	} else if c.Y != 0 {
+		if (c.X != 0 || c.Z != 0) {
+			e = errors.New("StepsToOrigin: only X, Y or Z can be non-zero")
+		} else {
+			translation = Translation{X:0, Y:c.Y/Abs(c.Y), Z:0}
+			steps = Abs(c.Y)
+			e = nil
+		}
+	} else if c.Z != 0 {
+		if (c.X != 0 || c.Y != 0) {
+			e = errors.New("StepsToOrigin: only X, Y or Z can be non-zero")
+		} else {
+			translation = Translation{X:0, Y:0, Z:c.Z/Abs(c.Z)}
+			steps = Abs(c.Z)
+			e = nil
+		}
+	} else {
+		e = errors.New("Starting position of the block can't be the origin")
+	}
+
+	return
 
 }
 
@@ -463,11 +533,44 @@ func Solve() (error) {
 
 				success, e := space.InsertBlock(block)
 				// this should ALWAYS work
+
 				if (!success || e!= nil) {
 					return errors.New("Solve() Internal error when trying to put oriented block in initial position")
 				}
 
-				// TODO now try to translate into cube position, if I fail, then this path is not a solution
+				trans, steps, e := StepsToOrigin(startingPositions[startingPos])
+
+				if (e != nil) {
+					return errors.New(fmt.Sprintf("Solve():%s",e))
+				}
+
+				// try to translate into cube position, if I fail, then this path is not a solution
+				for j:=0; j < steps; j++ {
+					e:= space.RemoveBlock(block)
+					if (e != nil) {
+						return errors.New(fmt.Sprintf("Solve():%s"))
+					}
+					block.Translate(trans)
+					success, e := space.InsertBlock(block)
+					if (e != nil) {
+						return errors.New(fmt.Sprintf("Solve() Internal error (2) inserting block %s",e))
+					}
+					if (!success) {
+						// we found a block in our way...
+						fmt.Printf("Found a block in our way when moving block:%d to position %v\n",block.BlockID,block.Parts())
+						// 
+						e:= space.RemoveBlock(block)
+						if (e != nil) {
+							return errors.New(fmt.Sprintf("Solve3():%s"))
+						}
+						break
+
+					}
+
+				}
+
+				// todo: perturb are like different blocks and we must try every other block before trying a perturb..this 
+				// code is not structured right.
 
 
 				// need to apply local movements, which is the list of movements possible
